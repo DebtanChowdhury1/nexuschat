@@ -22,7 +22,7 @@ const LENGTH_INSTRUCTIONS: Record<ResponseLength, string> = {
   descriptive: 'Give a thorough, well-structured answer — cover relevant context, examples, and caveats, using headings or lists where they help.',
 };
 
-/** ChatGPT/Claude-style "extended thinking": the model reasons inside a <think> block first, which the UI renders as a collapsible section, then gives its real answer after. Works with any provider since it's plain prompting, not a special API. */
+/** "Extended thinking": the model reasons inside a <think> block first, which the UI renders as a collapsible section, then gives its real answer after. Works with any provider since it's plain prompting, not a special API. */
 const DEEP_THINK_INSTRUCTION = [
   'Before answering, think through the problem carefully and thoroughly inside a single <think>...</think> block — consider the question from multiple angles, check your reasoning, and work through any steps needed.',
   'Close the </think> tag, then give your final answer as normal, well-formatted prose. The final answer must be self-contained and make sense on its own — do not refer back to "as I thought above."',

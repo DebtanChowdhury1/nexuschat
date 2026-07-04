@@ -62,9 +62,9 @@ export function MessageBubble({ conversationId, message, onEdit, streaming = fal
   const [draft, setDraft] = useState(message.content);
   const [copied, setCopied] = useState(false);
   // Auto-opens the moment reasoning starts streaming in (so the user can
-  // watch it think, like Claude's extended thinking view) but only once —
-  // after that the user is free to collapse it manually even while it's
-  // still streaming, without this fighting them back open every render.
+  // watch it think) but only once — after that the user is free to
+  // collapse it manually even while it's still streaming, without this
+  // fighting them back open every render.
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
   useEffect(() => {
     if (thinkingInProgress) setThinkingExpanded(true);

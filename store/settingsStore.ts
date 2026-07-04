@@ -7,7 +7,7 @@ import type { ResponseLength, ResponseTone } from '../lib/responseStyle';
 interface SettingsState {
   voiceModeEnabled: boolean;
   setVoiceModeEnabled: (enabled: boolean) => void;
-  /** ChatGPT/Claude-style "extended thinking" — model reasons in a collapsible block before answering. Persisted like a mode you switch on, not a one-off per-message toggle. */
+  /** "Extended thinking" — model reasons in a collapsible block before answering. Persisted like a mode you switch on, not a one-off per-message toggle. */
   deepThinkEnabled: boolean;
   setDeepThinkEnabled: (enabled: boolean) => void;
   responseLength: ResponseLength;
