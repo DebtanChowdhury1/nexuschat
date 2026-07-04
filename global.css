@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* react-native-web renders the RN root into #root, but doesn't stretch it
+   to the viewport itself — without this, the app renders at its intrinsic
+   content size instead of filling the browser window. */
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+}
+
+/* Safety net for long scrollable pages (e.g. the landing page): if a themed
+   wrapper div's own background doesn't extend the full scroll height for
+   any reason, html/body would otherwise show the browser's stark-white
+   default instead of the app's real background — creating a visible seam
+   partway down the page. Matching html/body to the same theme colors here
+   means there's never a gap to see regardless of wrapper sizing. */
+html,
+body {
+  background-color: #ffffff;
+}
+/* NativeWind toggles the "dark" class on <html> only (confirmed live), not
+   on <body> — so body needs the descendant selector to actually pick up
+   the color, a plain "body.dark" compound selector would never match. */
+html.dark,
+html.dark body {
+  background-color: #08080b;
+}
