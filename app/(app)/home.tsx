@@ -16,11 +16,11 @@ import { usePageTitle } from '../../lib/usePageTitle';
 export default function HomeScreen() {
   usePageTitle('NexusChat');
   const session = useAuthStore((s) => s.session);
-  const createConversation = useChatStore((s) => s.createConversation);
+  const getOrCreateDraftConversation = useChatStore((s) => s.getOrCreateDraftConversation);
 
   const handleStartChat = async () => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id);
+    const conversation = await getOrCreateDraftConversation(session.user.id);
     router.push(`/(app)/chat/${conversation.id}`);
   };
 

@@ -19,7 +19,7 @@ import { VoiceMode } from '../../../components/VoiceMode';
 import { defaultLeaf, pathToLeaf } from '../../../lib/branching';
 import { getDeviceId } from '../../../lib/deviceId';
 import { splitThinking } from '../../../lib/responseStyle';
-import { useAndroidKeyboardHeight } from '../../../lib/useKeyboardHeight';
+import { useAndroidKeyboardSpacer } from '../../../lib/useKeyboardHeight';
 import {
   broadcastRoomMessage,
   subscribeToConversation,
@@ -42,7 +42,7 @@ export default function ChatScreen() {
   const { id, voice, room: roomParam } = useLocalSearchParams<{ id: string; voice?: string; room?: string }>();
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
-  const androidKeyboardHeight = useAndroidKeyboardHeight();
+  const keyboardSpacerHeight = useAndroidKeyboardSpacer(10);
   const openDrawer = useNavStore((s) => s.openDrawer);
   const session = useAuthStore((s) => s.session);
   const activeRoom = useRoomStore((s) => s.activeRoom);
@@ -272,7 +272,6 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ paddingBottom: androidKeyboardHeight }}
       className="flex-1 bg-bg-light dark:bg-bg-dark"
     >
       <AppHeader
@@ -360,7 +359,8 @@ export default function ChatScreen() {
         <Animated.FlatList
           data={activePath}
           keyExtractor={(m: (typeof activePath)[number]) => m.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 28, flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item, index }: { item: (typeof activePath)[number]; index: number }) => (
             <Animated.View entering={FadeInUp.springify().damping(16).stiffness(180)}>
               <MessageBubble
@@ -393,6 +393,7 @@ export default function ChatScreen() {
         onSend={handleSend}
         onOpenVoice={() => setVoiceVisible(true)}
       />
+      <View style={{ height: keyboardSpacerHeight }} />
 
       <VoiceMode
         visible={voiceVisible}

@@ -49,16 +49,17 @@ function ActionButton({
 export function QuickActions() {
   const session = useAuthStore((s) => s.session);
   const createConversation = useChatStore((s) => s.createConversation);
+  const getOrCreateDraftConversation = useChatStore((s) => s.getOrCreateDraftConversation);
 
   const handleNewChat = async () => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id);
+    const conversation = await getOrCreateDraftConversation(session.user.id);
     router.push(`/(app)/chat/${conversation.id}`);
   };
 
   const handleVoiceChat = async () => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id);
+    const conversation = await getOrCreateDraftConversation(session.user.id);
     router.push(`/(app)/chat/${conversation.id}?voice=1`);
   };
 

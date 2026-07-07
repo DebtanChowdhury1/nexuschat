@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, TextInput, Pressable, Text, ActivityIndicator, Platform } from 'react-native';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Sparkles, TextAlignStart, Type as TypeIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { pickAndUploadAttachment, type UploadedAttachment } from '../lib/attachments';
 import { color } from '../constants/theme';
@@ -9,7 +10,9 @@ import { useNetworkStatus } from '../lib/useNetworkStatus';
 import { useAuthStore } from '../store/authStore';
 import { useOfflineQueueStore } from '../store/offlineQueueStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useUiStore } from '../store/uiStore';
 import { broadcastTyping } from '../lib/realtime';
+import { useAndroidKeyboardVisible } from '../lib/useKeyboardHeight';
 
 interface ChatInputProps {
   conversationId: string;
@@ -34,6 +37,7 @@ export function ChatInput({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [pendingAttachment, setPendingAttachment] = useState<UploadedAttachment | null>(null);
   const isOnline = useNetworkStatus();
@@ -51,6 +55,10 @@ export function ChatInput({
   );
   const pendingQueued = useMemo(() => queued.filter((m) => !m.failed), [queued]);
   const failedQueued = useMemo(() => queued.filter((m) => m.failed), [queued]);
+  const insets = useSafeAreaInsets();
+  const keyboardVisible = useAndroidKeyboardVisible();
+  const keyboardActive = focused || keyboardVisible;
+  const setChatInputFocused = useUiStore((s) => s.setChatInputFocused);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasOnline = useRef(isOnline);
   // A rapid double-tap on send can invoke handleSubmit twice before React
@@ -99,6 +107,16 @@ export function ChatInput({
     typingTimeout.current = setTimeout(() => {
       broadcastTyping(typingChannel, conversationId, false, roomParticipant ?? undefined);
     }, 1500);
+  };
+
+  const markFocused = () => {
+    setFocused(true);
+    setChatInputFocused(true);
+  };
+
+  const markBlurred = () => {
+    setFocused(false);
+    setChatInputFocused(false);
   };
 
   const handleSubmit = async () => {
@@ -159,7 +177,12 @@ export function ChatInput({
   };
 
   return (
-    <View className="border-t border-border-light bg-bg-light p-3 dark:border-border dark:bg-black/20">
+    <View
+      style={{
+        paddingBottom: keyboardActive ? 10 : Math.max(12, insets.bottom + 8),
+      }}
+      className="border-t border-border-light bg-bg-light px-3 pt-3 dark:border-border dark:bg-black/20"
+    >
       {pendingQueued.length > 0 && (
         <Text className="mb-2 text-xs text-amber-500 dark:text-amber-400">
           {pendingQueued.length} message{pendingQueued.length > 1 ? 's' : ''} queued — will send when back online
@@ -264,6 +287,9 @@ export function ChatInput({
         <TextInput
           value={text}
           onChangeText={handleChangeText}
+          onPressIn={markFocused}
+          onFocus={markFocused}
+          onBlur={markBlurred}
           onKeyPress={handleKeyPress}
           placeholder={
             pendingAttachment

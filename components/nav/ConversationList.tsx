@@ -114,6 +114,7 @@ export function ConversationList({ onNavigate }: { onNavigate?: () => void }) {
   const conversationsLoading = useChatStore((s) => s.conversationsLoading);
   const loadConversations = useChatStore((s) => s.loadConversations);
   const createConversation = useChatStore((s) => s.createConversation);
+  const getOrCreateDraftConversation = useChatStore((s) => s.getOrCreateDraftConversation);
   const params = useLocalSearchParams<{ id?: string }>();
 
   // Temporary chats live in local state (so the open chat screen can look up
@@ -126,8 +127,10 @@ export function ConversationList({ onNavigate }: { onNavigate?: () => void }) {
 
   const startChat = async (isTemporary: boolean) => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id, isTemporary);
-    router.push(`/(app)/chat/${conversation.id}`);
+    const conversation = isTemporary
+      ? await createConversation(session.user.id, true)
+      : await getOrCreateDraftConversation(session.user.id);
+    router.replace(`/(app)/chat/${conversation.id}`);
     onNavigate?.();
   };
 

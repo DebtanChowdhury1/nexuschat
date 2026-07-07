@@ -24,6 +24,7 @@ export default function AppLayout() {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
   const sidebarWidth = useUiStore((s) => s.sidebarWidth);
+  const chatInputFocused = useUiStore((s) => s.chatInputFocused);
   const loadConversations = useChatStore((s) => s.loadConversations);
   const userId = session?.user.id;
   // The tab bar is a fixed-height sibling below the screen content, unaware
@@ -74,7 +75,7 @@ export default function AppLayout() {
       <View className="flex-1">
         <Slot />
       </View>
-      {!keyboardVisible && <BottomTabBar />}
+      {!keyboardVisible && !chatInputFocused && <BottomTabBar />}
       <ConversationDrawer />
     </View>
   );

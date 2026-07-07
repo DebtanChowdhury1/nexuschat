@@ -13,21 +13,34 @@ import { useEffect, useRef, useState } from 'react';
  */
 export function useTypewriter(text: string, active: boolean): string {
   const [revealed, setRevealed] = useState(() => (active ? 0 : text.length));
-  const wasActive = useRef(active);
+  const revealMode = useRef(active);
 
   useEffect(() => {
-    // A fresh streaming session starting (inactive -> active) restarts the
-    // reveal from zero rather than carrying over stale progress.
-    if (active && !wasActive.current) setRevealed(0);
-    if (!active) setRevealed(text.length);
-    wasActive.current = active;
+    if (active && !revealMode.current) {
+      revealMode.current = true;
+      setRevealed(0);
+      return;
+    }
+
+    // Historical messages mount inactive and should render immediately.
+    // A message that just finished streaming stays in reveal mode until the
+    // visible text catches up, avoiding a sudden full-answer dump.
+    if (!active && !revealMode.current) {
+      setRevealed(text.length);
+    }
   }, [active, text.length]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active && !revealMode.current) return;
     const id = setInterval(() => {
-      setRevealed((prev) => (prev < text.length ? Math.min(text.length, prev + 3) : prev));
-    }, 20);
+      setRevealed((prev) => {
+        if (prev >= text.length) {
+          if (!active) revealMode.current = false;
+          return prev;
+        }
+        return Math.min(text.length, prev + 2);
+      });
+    }, 28);
     return () => clearInterval(id);
   }, [active, text.length]);
 

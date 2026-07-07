@@ -22,13 +22,13 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const session = useAuthStore((s) => s.session);
-  const createConversation = useChatStore((s) => s.createConversation);
+  const getOrCreateDraftConversation = useChatStore((s) => s.getOrCreateDraftConversation);
 
   const handlePress = async (tab: (typeof TABS)[number]) => {
     if (tab.key === 'new') {
       if (!session?.user.id) return;
-      const conversation = await createConversation(session.user.id);
-      router.push(`/(app)/chat/${conversation.id}`);
+      const conversation = await getOrCreateDraftConversation(session.user.id);
+      router.replace(`/(app)/chat/${conversation.id}`);
       return;
     }
     if (tab.key === 'home') router.push('/(app)/home');

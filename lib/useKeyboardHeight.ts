@@ -1,23 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Keyboard, Platform, useWindowDimensions } from 'react-native';
 
-/**
- * Android-only measured keyboard height, applied as manual bottom padding
- * on the chat screen instead of KeyboardAvoidingView. Android's
- * windowSoftInputMode behaves inconsistently inside Expo Go — behavior
- * 'height' on top of an already-resized window double-subtracts the
- * keyboard height and can push the input fully off-screen, while
- * `undefined` leaves it hidden behind the keyboard entirely. Measuring the
- * keyboard directly and applying padding ourselves sidesteps guessing which
- * resize mode is active. iOS keeps using KeyboardAvoidingView's 'padding'
- * behavior, which is reliable there.
- *
- * This only accounts for the chat screen's own content — the app shell's
- * bottom tab bar is a separate, keyboard-unaware sibling (see
- * useAndroidKeyboardVisible, used to hide it while typing) that would
- * otherwise eat into this same space and leave a gap between the input and
- * the keyboard.
- */
+/** Android-only measured keyboard height for small, local layout adjustments while the native window handles pan/resize. */
 export function useAndroidKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
 
@@ -37,4 +21,39 @@ export function useAndroidKeyboardHeight(): number {
 /** Whether the keyboard is currently visible — Android-only, see useAndroidKeyboardHeight. */
 export function useAndroidKeyboardVisible(): boolean {
   return useAndroidKeyboardHeight() > 0;
+}
+
+/**
+ * Height for a spacer rendered after a bottom input.
+ *
+ * Android can either pan the whole app or resize the window depending on
+ * native mode/Expo Go behavior. If the window already shrank, only keep the
+ * requested visual gap. If it did not shrink, reserve the keyboard height
+ * plus the gap so the input sits just above the keyboard.
+ */
+export function useAndroidKeyboardSpacer(gap = 10): number {
+  const { height: windowHeight } = useWindowDimensions();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const baselineHeight = useRef(windowHeight);
+
+  useEffect(() => {
+    if (keyboardHeight === 0) {
+      baselineHeight.current = Math.max(baselineHeight.current, windowHeight);
+    }
+  }, [keyboardHeight, windowHeight]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  if (Platform.OS !== 'android' || keyboardHeight === 0) return 0;
+  const resizedBy = Math.max(0, baselineHeight.current - windowHeight);
+  const neededSpace = Math.max(gap, keyboardHeight - resizedBy + gap);
+  return Math.min(18, neededSpace);
 }

@@ -147,7 +147,7 @@ export function MessageBubble({ conversationId, message, onEdit, streaming = fal
   };
 
   return (
-    <View className={`mb-4 max-w-[85%] ${isUser ? 'self-end' : 'self-start'}`}>
+    <View className={`mb-4 ${isUser ? 'max-w-[85%] self-end' : 'w-full max-w-full self-start'}`}>
       <BranchSwitcher conversationId={conversationId} message={message} />
       {isUser && message.sender_name && (
         <View className="mb-0.5 flex-row items-center gap-1.5 self-end px-1">
@@ -159,6 +159,7 @@ export function MessageBubble({ conversationId, message, onEdit, streaming = fal
         className={`rounded-2xl px-4 py-3 ${
           isUser ? 'bg-brand' : 'border border-border-light bg-black/[0.03] dark:border-border dark:bg-white/5'
         }`}
+        style={!isUser ? { maxWidth: '100%' } : undefined}
       >
         {isUser && editing ? (
           <TextInput

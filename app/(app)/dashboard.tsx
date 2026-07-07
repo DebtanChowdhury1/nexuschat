@@ -95,6 +95,7 @@ export default function DashboardScreen() {
   const conversations = useChatStore((s) => s.conversations);
   const loadConversations = useChatStore((s) => s.loadConversations);
   const createConversation = useChatStore((s) => s.createConversation);
+  const getOrCreateDraftConversation = useChatStore((s) => s.getOrCreateDraftConversation);
   const [messageCount, setMessageCount] = useState(0);
   const [displayName, setDisplayName] = useState(() => session?.user.email?.split('@')[0] ?? 'there');
   const [statsError, setStatsError] = useState(false);
@@ -148,13 +149,15 @@ export default function DashboardScreen() {
 
   const handleNewChat = async (isTemporary = false) => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id, isTemporary);
+    const conversation = isTemporary
+      ? await createConversation(session.user.id, true)
+      : await getOrCreateDraftConversation(session.user.id);
     router.push(`/(app)/chat/${conversation.id}`);
   };
 
   const handleVoiceChat = async () => {
     if (!session?.user.id) return;
-    const conversation = await createConversation(session.user.id);
+    const conversation = await getOrCreateDraftConversation(session.user.id);
     router.push(`/(app)/chat/${conversation.id}?voice=1`);
   };
 

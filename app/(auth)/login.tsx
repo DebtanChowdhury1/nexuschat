@@ -1,7 +1,17 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { supabase } from '../../lib/supabase';
+import { useAndroidKeyboardHeight } from '../../lib/useKeyboardHeight';
 import { usePageTitle } from '../../lib/usePageTitle';
 
 // Simple sanity check, not full RFC validation — Supabase does the real
@@ -34,6 +44,17 @@ export default function LoginScreen() {
   const trimmedEmail = email.trim();
   const isValidEmail = EMAIL_PATTERN.test(trimmedEmail);
   const isValidCode = CODE_PATTERN.test(code.trim());
+  const keyboardBehavior = Platform.OS === 'ios' ? 'padding' : undefined;
+  const keyboardHeight = useAndroidKeyboardHeight();
+  const keyboardVisible = Platform.OS === 'android' && keyboardHeight > 0;
+  const keyboardLift = keyboardVisible ? -36 : 0;
+  const contentStyle = {
+    flexGrow: 1,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: keyboardVisible ? 56 : 32,
+  };
 
   const handleSendCode = async () => {
     setError(null);
@@ -78,82 +99,96 @@ export default function LoginScreen() {
 
   if (sent) {
     return (
-      <View className="flex-1 items-center justify-center bg-bg-light px-6 dark:bg-bg-dark">
-        <Text className="mb-2 text-2xl font-bold text-ink-primary-light dark:text-ink-primary">
-          Check your email
-        </Text>
-        <Text className="mb-6 max-w-sm text-center text-ink-secondary-light dark:text-ink-secondary">
-          We sent a 6-digit code to {trimmedEmail}. Enter it below to sign in.
-        </Text>
-        <View className="w-full max-w-sm gap-3">
-          <TextInput
-            value={code}
-            onChangeText={setCode}
-            placeholder="6-digit code"
-            placeholderTextColor="#8888a0"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="number-pad"
-            maxLength={6}
-            accessibilityLabel="6-digit code"
-            className="rounded-xl border border-border-light bg-black/5 px-4 py-3 text-center text-lg tracking-widest text-ink-primary-light dark:border-border dark:bg-white/10 dark:text-ink-primary"
-          />
-          {error && <Text className="text-red-400">{error}</Text>}
-          <Pressable
-            onPress={handleVerifyCode}
-            disabled={verifying || !isValidCode}
-            accessibilityRole="button"
-            accessibilityLabel="Verify and sign in"
-            className="mt-2 items-center rounded-xl bg-brand py-3 active:opacity-80 hover:opacity-90 disabled:opacity-50"
-          >
-            {verifying ? <ActivityIndicator color="#fff" /> : <Text className="font-semibold text-white">Verify & sign in</Text>}
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setSent(false);
-              setCode('');
-              setError(null);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Use a different email"
-            className="mt-1 items-center py-2"
-          >
-            <Text className="text-brand-light">Use a different email</Text>
-          </Pressable>
-        </View>
-      </View>
+      <KeyboardAvoidingView behavior={keyboardBehavior} className="flex-1 bg-bg-light dark:bg-bg-dark">
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={contentStyle}
+        >
+          <View style={{ transform: [{ translateY: keyboardLift }] }} className="items-center">
+            <Text className="mb-2 text-2xl font-bold text-ink-primary-light dark:text-ink-primary">
+              Check your email
+            </Text>
+            <Text className="mb-6 max-w-sm text-center text-ink-secondary-light dark:text-ink-secondary">
+              We sent a 6-digit code to {trimmedEmail}. Enter it below to sign in.
+            </Text>
+            <View className="w-full max-w-sm gap-3">
+              <TextInput
+                value={code}
+                onChangeText={setCode}
+                placeholder="6-digit code"
+                placeholderTextColor="#8888a0"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                maxLength={6}
+                accessibilityLabel="6-digit code"
+                className="rounded-xl border border-border-light bg-black/5 px-4 py-3 text-center text-lg tracking-widest text-ink-primary-light dark:border-border dark:bg-white/10 dark:text-ink-primary"
+              />
+              {error && <Text className="text-red-400">{error}</Text>}
+              <Pressable
+                onPress={handleVerifyCode}
+                disabled={verifying || !isValidCode}
+                accessibilityRole="button"
+                accessibilityLabel="Verify and sign in"
+                className="mt-2 items-center rounded-xl bg-brand py-3 active:opacity-80 hover:opacity-90 disabled:opacity-50"
+              >
+                {verifying ? <ActivityIndicator color="#fff" /> : <Text className="font-semibold text-white">Verify & sign in</Text>}
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setSent(false);
+                  setCode('');
+                  setError(null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Use a different email"
+                className="mt-1 items-center py-2"
+              >
+                <Text className="text-brand-light">Use a different email</Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View className="flex-1 items-center justify-center bg-bg-light px-6 dark:bg-bg-dark">
-      <Text className="mb-8 text-3xl font-bold text-ink-primary-light dark:text-ink-primary">NexusChat</Text>
-      <View className="w-full max-w-sm gap-3">
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Email"
-          placeholderTextColor="#8888a0"
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          accessibilityLabel="Email"
-          className="rounded-xl border border-border-light bg-black/5 px-4 py-3 text-ink-primary-light dark:border-border dark:bg-white/10 dark:text-ink-primary"
-        />
-        {error && <Text className="text-red-400">{error}</Text>}
-        <Pressable
-          onPress={handleSendCode}
-          disabled={sending || !isValidEmail}
-          accessibilityRole="button"
-          accessibilityLabel="Send sign-in code"
-          className="mt-2 items-center rounded-xl bg-brand py-3 active:opacity-80 hover:opacity-90 disabled:opacity-50"
-        >
-          {sending ? <ActivityIndicator color="#fff" /> : <Text className="font-semibold text-white">Send sign-in code</Text>}
-        </Pressable>
-        <Text className="mt-2 text-center text-xs text-ink-muted-light dark:text-ink-muted">
-          No password needed — we'll email you a 6-digit code to sign in.
-        </Text>
-      </View>
-    </View>
+    <KeyboardAvoidingView behavior={keyboardBehavior} className="flex-1 bg-bg-light dark:bg-bg-dark">
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={contentStyle}
+      >
+        <View style={{ transform: [{ translateY: keyboardLift }] }} className="items-center">
+          <Text className="mb-8 text-3xl font-bold text-ink-primary-light dark:text-ink-primary">NexusChat</Text>
+          <View className="w-full max-w-sm gap-3">
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor="#8888a0"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              accessibilityLabel="Email"
+              className="rounded-xl border border-border-light bg-black/5 px-4 py-3 text-ink-primary-light dark:border-border dark:bg-white/10 dark:text-ink-primary"
+            />
+            {error && <Text className="text-red-400">{error}</Text>}
+            <Pressable
+              onPress={handleSendCode}
+              disabled={sending || !isValidEmail}
+              accessibilityRole="button"
+              accessibilityLabel="Send sign-in code"
+              className="mt-2 items-center rounded-xl bg-brand py-3 active:opacity-80 hover:opacity-90 disabled:opacity-50"
+            >
+              {sending ? <ActivityIndicator color="#fff" /> : <Text className="font-semibold text-white">Send sign-in code</Text>}
+            </Pressable>
+            <Text className="mt-2 text-center text-xs text-ink-muted-light dark:text-ink-muted">
+              No password needed — we'll email you a 6-digit code to sign in.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

@@ -33,7 +33,10 @@ export function CodeBlock({ code, language }: { code: string; language?: string 
   };
 
   return (
-    <View className="my-2 overflow-hidden rounded-lg border border-border-light bg-black/[0.04] dark:border-border dark:bg-black/40">
+    <View
+      style={{ maxWidth: '100%' }}
+      className="my-2 overflow-hidden rounded-lg border border-border-light bg-black/[0.04] dark:border-border dark:bg-black/40"
+    >
       <View className="flex-row items-center justify-between border-b border-border-light px-3 py-1.5 dark:border-border">
         <Text className="text-xs text-ink-muted-light dark:text-ink-muted">{language || 'text'}</Text>
         <Pressable
@@ -50,7 +53,7 @@ export function CodeBlock({ code, language }: { code: string; language?: string 
           <Text className="text-xs text-brand-light">{copied ? 'Copied!' : 'Copy'}</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxWidth: '100%' }}>
         <Text
           selectable
           style={{ fontFamily: Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }) }}

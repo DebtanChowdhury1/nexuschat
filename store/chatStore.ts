@@ -30,6 +30,10 @@ const STALE_GENERATION_TIMEOUT_MS = 3 * 60 * 1000;
 // provider's context window with a hard failure and no graceful fallback.
 const MAX_MESSAGES_LOADED = 500;
 const MAX_HISTORY_TURNS = 40; // ~20 exchanges — generous context, bounded cost/latency
+const DRAFT_CONVERSATION_TITLE = 'New conversation';
+const TEMPORARY_CONVERSATION_TITLE = 'Temporary chat';
+
+const draftConversationRequests = new Map<string, Promise<Conversation>>();
 
 /** Derives a conversation title from its first message — no separate AI call, just a clean truncation. */
 function titleFromMessage(content: string): string {
@@ -48,6 +52,8 @@ interface ChatState {
   loadConversations: (userId: string) => Promise<void>;
   /** Temporary chats aren't persisted to the sidebar's list — see is_temporary on the row itself. */
   createConversation: (userId: string, isTemporary?: boolean) => Promise<Conversation>;
+  /** ChatGPT-style saved draft: repeated "New chat" taps reopen the same empty chat until the user sends a message. */
+  getOrCreateDraftConversation: (userId: string) => Promise<Conversation>;
   renameConversation: (id: string, title: string) => Promise<void>;
   togglePin: (id: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -108,7 +114,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .from('conversations')
       .insert({
         user_id: userId,
-        title: isTemporary ? 'Temporary chat' : 'New conversation',
+        title: isTemporary ? TEMPORARY_CONVERSATION_TITLE : DRAFT_CONVERSATION_TITLE,
         is_temporary: isTemporary,
       })
       .select()
@@ -118,6 +124,54 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // up its title/model — just excluded from the sidebar's own filtering.
     set({ conversations: [data, ...get().conversations] });
     return data;
+  },
+
+  getOrCreateDraftConversation: async (userId) => {
+    const existingRequest = draftConversationRequests.get(userId);
+    if (existingRequest) return existingRequest;
+
+    const request = (async () => {
+      const localDrafts = get().conversations.filter(
+        (c) => c.user_id === userId && !c.is_temporary && c.title === DRAFT_CONVERSATION_TITLE
+      );
+
+      for (const draft of localDrafts) {
+        const loadedMessages = get().messagesByConversation[draft.id];
+        if (loadedMessages && loadedMessages.length === 0) return draft;
+      }
+
+      const { data: candidates, error: candidatesError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_temporary', false)
+        .eq('title', DRAFT_CONVERSATION_TITLE)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (candidatesError) throw candidatesError;
+
+      for (const candidate of candidates ?? []) {
+        const { count, error: countError } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('conversation_id', candidate.id);
+        if (countError) throw countError;
+        if ((count ?? 0) === 0) {
+          set({
+            conversations: [candidate, ...get().conversations.filter((c) => c.id !== candidate.id)],
+            messagesByConversation: { ...get().messagesByConversation, [candidate.id]: [] },
+          });
+          return candidate;
+        }
+      }
+
+      return get().createConversation(userId, false);
+    })().finally(() => {
+      draftConversationRequests.delete(userId);
+    });
+
+    draftConversationRequests.set(userId, request);
+    return request;
   },
 
   renameConversation: async (id, title) => {
@@ -279,7 +333,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // ChatGPT's auto-named threads.
     if (!parentMessageId) {
       const current = get().conversations.find((c) => c.id === conversationId);
-      if (current && (current.title === 'New conversation' || current.title === 'Temporary chat')) {
+      if (current && (current.title === DRAFT_CONVERSATION_TITLE || current.title === TEMPORARY_CONVERSATION_TITLE)) {
         void get().renameConversation(conversationId, titleFromMessage(content));
       }
     }
@@ -315,6 +369,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content: buildResponseStyleInstruction({ length: responseLength, tone, deepThink: deepThinkEnabled }),
     });
 
+    // Insert the assistant row before any slow prep work (especially web
+    // search) so the user sees progress immediately instead of a blank gap.
+    const { data: placeholder, error: placeholderError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: '<think>Reading your message and setting up the answer...',
+        parent_message_id: userMessage.id,
+      })
+      .select()
+      .single();
+    if (placeholderError) {
+      await supabase.from('conversations').update({ is_generating: false }).eq('id', conversationId);
+      throw placeholderError;
+    }
+    get().applyRemoteMessage(placeholder);
+    get().setActiveLeaf(conversationId, placeholder.id);
+
+    const updateAssistantProgress = (step: string) => {
+      const content = `<think>${step}`;
+      get().applyRemoteMessage({ ...placeholder, content });
+      void supabase.from('messages').update({ content }).eq('id', placeholder.id);
+    };
+
+    updateAssistantProgress('Understanding your request and checking the conversation context...');
+
     // Prior user turns in this conversation (oldest first, current message
     // excluded) — lets a short follow-up like "and tomorrow?" inherit a
     // live-data need from what was just being discussed, and lets the
@@ -338,32 +419,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (shouldSearchWeb(content, priorUserMessages)) {
       try {
         const searchQuery = buildSearchQuery(content, priorUserMessages);
+        updateAssistantProgress(`Searching the web for: "${searchQuery}"`);
         const outcome = await searchWeb(searchQuery);
+        const sourceCount = outcome.results.length;
+        updateAssistantProgress(
+          `Found ${sourceCount} web source${sourceCount === 1 ? '' : 's'} and folding the useful parts into the answer...`
+        );
         history.unshift({ role: 'system', content: formatSearchContext(searchQuery, outcome) });
       } catch {
+        updateAssistantProgress('Web search did not return usable results, so I am answering from the available context...');
         // Search is best-effort — proceed without it.
       }
     }
 
-    // Insert a placeholder assistant row we stream tokens into, so every
-    // connected device sees the same row grow via postgres_changes UPDATE
-    // events rather than each device re-deriving partial text locally.
-    const { data: placeholder, error: placeholderError } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: '',
-        parent_message_id: userMessage.id,
-      })
-      .select()
-      .single();
-    if (placeholderError) {
-      await supabase.from('conversations').update({ is_generating: false }).eq('id', conversationId);
-      throw placeholderError;
-    }
-    get().applyRemoteMessage(placeholder);
-    get().setActiveLeaf(conversationId, placeholder.id);
+    updateAssistantProgress('Starting the AI stream and drafting the response...');
 
     let buffer = '';
     let lastFlush = Date.now();
